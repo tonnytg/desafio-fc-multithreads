@@ -15,7 +15,7 @@ As duas requisições serão feitas simultaneamente para as seguintes APIs:
 
 - [X] Acatar a API que entregar a resposta mais rápida e descartar a resposta mais lenta.
 - [X] O resultado da request deverá ser exibido no command line com os dados do endereço, bem como qual API a enviou.
-- [ ] Limitar o tempo de resposta em 1 segundo. Caso contrário, o erro de timeout deve ser exibido.
+- [X] Limitar o tempo de resposta em 1 segundo. Caso contrário, o erro de timeout deve ser exibido.
 
 
 ### Como foi resolvido esse desafio?
@@ -26,7 +26,7 @@ isso já começa dentro do contexto de Mutli Threads, pois cada Go Routine é um
 Depois criei uma função MakeRequest que vai iniciar duas Go Routines para fazer as requisições, porém há a regra que 
 se uma das requisições retornar antes a outra deve ser cancelada.
 
-
+Foi adicionado um select e um timeOut de 1 segundo caso não houve-se resposta no channel.
 
 ```
 	client := http.Client{}
@@ -46,35 +46,40 @@ O teste do main é utilizando um slice de ceps coletados na internet
 Segue abaixo um exemplo de log esperado um pouco mais verboso
 
 ```
+2024/03/02 21:26:46 Start Get CEP
+2024/03/02 21:26:46 CEP 01153000
+2024/03/02 21:26:46 Request 2 - URL https://brasilapi.com.br/api/cep/v1/01153000
+2024/03/02 21:26:46 Request 1 - URL http://viacep.com.br/ws/01153000/json/
+2024/03/02 21:26:47 Request 2 {"cep":"01153000","state":"SP","city":"São Paulo","neighborhood":"Barra Funda","street":"Rua Vitorino Carmilo","service":"correios-alt"}
+2024/03/02 21:26:51 CEP 05541000
+2024/03/02 21:26:51 Request 1 - URL http://viacep.com.br/ws/05541000/json/
+2024/03/02 21:26:51 Request 2 - URL https://brasilapi.com.br/api/cep/v1/05541000
+2024/03/02 21:26:52 Request 2 {"cep":"05541000","state":"SP","city":"São Paulo","neighborhood":"Jardim das Vertentes","street":"Avenida Albert Bartholome","service":"correios-alt"}
+2024/03/02 21:26:56 CEP 08032330
+2024/03/02 21:26:56 Request 1 - URL http://viacep.com.br/ws/08032330/json/
+2024/03/02 21:26:56 Request 2 - URL https://brasilapi.com.br/api/cep/v1/08032330
+2024/03/02 21:26:56 Request 2 {"cep":"08032330","state":"SP","city":"São Paulo","neighborhood":"Vila Nova Curuçá","street":"Rua Tachã","service":"correios-alt"}
+2024/03/02 21:27:01 CEP 01550020
+2024/03/02 21:27:01 Request 1 - URL http://viacep.com.br/ws/01550020/json/
+2024/03/02 21:27:01 Request 2 - URL https://brasilapi.com.br/api/cep/v1/01550020
+2024/03/02 21:27:02 Request 2 {"cep":"01550020","state":"SP","city":"São Paulo","neighborhood":"Vila Monumento","street":"Rua Doutor José Maria Azevedo","service":"correios-alt"}
+```
 
-2024/03/02 21:04:21 Start Get CEP
-2024/03/02 21:04:21 CEP 01153000
-2024/03/02 21:04:21 Check if needs cancel
-2024/03/02 21:04:21 Request 2 - URL https://brasilapi.com.br/api/cep/v1/01153000
-2024/03/02 21:04:21 Request 1 - URL http://viacep.com.br/ws/01153000/json/
-2024/03/02 21:04:22 Request 2 {"cep":"01153000","state":"SP","city":"São Paulo","neighborhood":"Barra Funda","street":"Rua Vitorino Carmilo","service":"correios-alt"}
-2024/03/02 21:04:22 End Check if needs cancel
-2024/03/02 21:04:22 Get "http://viacep.com.br/ws/01153000/json/": context canceled
-2024/03/02 21:04:22 Request 1 
-2024/03/02 21:04:22 End Check if needs cancel
-2024/03/02 21:04:26 CEP 05541000
-2024/03/02 21:04:26 Check if needs cancel
-2024/03/02 21:04:26 Request 1 - URL http://viacep.com.br/ws/05541000/json/
-2024/03/02 21:04:26 Request 2 - URL https://brasilapi.com.br/api/cep/v1/05541000
-2024/03/02 21:04:26 Request 2 {"cep":"05541000","state":"SP","city":"São Paulo","neighborhood":"Jardim das Vertentes","street":"Avenida Albert Bartholome","service":"correios-alt"}
-2024/03/02 21:04:26 End Check if needs cancel
-2024/03/02 21:04:26 Get "http://viacep.com.br/ws/05541000/json/": context canceled
-2024/03/02 21:04:26 Request 1 
-2024/03/02 21:04:26 End Check if needs cancel
-2024/03/02 21:04:31 CEP 08032330
-2024/03/02 21:04:31 Check if needs cancel
-2024/03/02 21:04:31 Request 1 - URL http://viacep.com.br/ws/08032330/json/
-2024/03/02 21:04:31 Request 2 - URL https://brasilapi.com.br/api/cep/v1/08032330
-2024/03/02 21:04:32 Request 2 {"cep":"08032330","state":"SP","city":"São Paulo","neighborhood":"Vila Nova Curuçá","street":"Rua Tachã","service":"correios-alt"}
-2024/03/02 21:04:32 End Check if needs cancel
-2024/03/02 21:04:32 Get "http://viacep.com.br/ws/08032330/json/": context canceled
-2024/03/02 21:04:32 Request 1 
-2024/03/02 21:04:32 End Check if needs cancel
+Mesmo log abaixo, porém com a conexão WiFi desativada:
+```
+2024/03/02 21:27:06 CEP 03312006
+2024/03/02 21:27:06 Request 2 - URL https://brasilapi.com.br/api/cep/v1/03312006
+2024/03/02 21:27:06 Request 1 - URL http://viacep.com.br/ws/03312006/json/
+2024/03/02 21:27:11 Timeout
+2024/03/02 21:27:11 CEP 01415900
+2024/03/02 21:27:11 Request 1 - URL http://viacep.com.br/ws/01415900/json/
+2024/03/02 21:27:11 Request 2 - URL https://brasilapi.com.br/api/cep/v1/01415900
+2024/03/02 21:27:16 Timeout
+2024/03/02 21:27:16 CEP 05639050
+2024/03/02 21:27:16 Request 1 - URL http://viacep.com.br/ws/05639050/json/
+2024/03/02 21:27:16 Request 2 - URL https://brasilapi.com.br/api/cep/v1/05639050
+2024/03/02 21:27:21 Timeout
+2024/03/02 21:27:21 End Get CEP
 
 
 

@@ -13,7 +13,7 @@ func MakeRequest(cep string) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	firstAnswer := make(chan bool)
+	firstAnswer := make(chan bool, 2)
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -26,11 +26,11 @@ func MakeRequest(cep string) error {
 
 		bodyByte, err := webclient.Request(ctx, method, url, nil)
 		if err != nil {
-			log.Println(err)
+			//log.Println(err)
+		} else {
+			log.Println("Request 1", string(bodyByte))
+			firstAnswer <- true
 		}
-
-		log.Println("Request 1", string(bodyByte))
-		firstAnswer <- true
 
 		wg.Done()
 
@@ -44,23 +44,23 @@ func MakeRequest(cep string) error {
 
 		bodyByte, err := webclient.Request(ctx, method, url, nil)
 		if err != nil {
-			log.Println(err)
+			// log.Println(err)
+		} else {
+			log.Println("Request 2", string(bodyByte))
+			firstAnswer <- true
 		}
-
-		log.Println("Request 2", string(bodyByte))
-		firstAnswer <- true
 
 		wg.Done()
 	}(&wg, cep)
 
 	go func() {
-		log.Println("Check if needs cancel")
 
-		for {
-			if <-firstAnswer {
-				cancel()
-			}
-			log.Println("End Check if needs cancel")
+		select {
+		case <-firstAnswer:
+			cancel()
+		case <-time.After(5 * time.Second):
+			log.Println("Timeout")
+			cancel()
 		}
 
 	}()
