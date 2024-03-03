@@ -19,59 +19,61 @@ import (
 //- Limitar o tempo de resposta em 1 segundo. Caso contrário, o erro de timeout deve ser exibido.
 
 func MakeRequest(cep string) error {
-	// Criar o contexto com cancelamento
+
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Canal para receber a primeira resposta
-	firstResponse := make(chan struct{})
+	firstAnswer := make(chan bool)
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 
-	// Primeira gorrotina
-	go func() {
-		defer wg.Done()
+	go func(wg *sync.WaitGroup, cep string) {
 
 		method := "GET"
 		url := fmt.Sprintf("http://viacep.com.br/ws/%s/json/", cep)
+		log.Println("Request 1 - URL", url)
 
 		bodyByte, err := webclient.Request(ctx, method, url, nil)
 		if err != nil {
 			log.Println(err)
-			return
 		}
 
-		log.Println("Request 1:", string(bodyByte))
+		log.Println("Request 1", string(bodyByte))
+		firstAnswer <- true
 
-		// Sinalizar que a primeira resposta foi recebida
-		firstResponse <- struct{}{}
-	}()
+		wg.Done()
 
-	// Segunda gorrotina
-	go func() {
-		defer wg.Done()
+	}(&wg, cep)
+
+	go func(wg *sync.WaitGroup, cep string) {
 
 		method := "GET"
 		url := fmt.Sprintf("https://brasilapi.com.br/api/cep/v1/%s", cep)
+		log.Println("Request 2 - URL", url)
 
 		bodyByte, err := webclient.Request(ctx, method, url, nil)
 		if err != nil {
 			log.Println(err)
-			return
 		}
 
-		log.Println("Request 2:", string(bodyByte))
+		log.Println("Request 2", string(bodyByte))
+		firstAnswer <- true
 
-		// Se a primeira resposta já foi recebida, cancelar esta gorrotina
-		select {
-		case <-firstResponse:
-			cancel()
-		default:
-			// Nada a fazer, continuar esperando
+		wg.Done()
+	}(&wg, cep)
+
+	go func() {
+		log.Println("Check if needs cancel")
+
+		for {
+			if <-firstAnswer {
+				cancel()
+			}
+			log.Println("End Check if needs cancel")
 		}
+
 	}()
 
-	// Esperar pela finalização das gorrotinas
 	wg.Wait()
 
 	return nil
@@ -102,6 +104,8 @@ func main() {
 		wg.Add(1)
 
 		for cep := range chanRequestCep {
+
+			log.Println("CEP", cep)
 			err := MakeRequest(cep)
 			if err != nil {
 				log.Println(err)
